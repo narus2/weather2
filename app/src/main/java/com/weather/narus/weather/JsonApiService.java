@@ -14,5 +14,9 @@ public interface JsonApiService {
     @GET("/data/2.5/weather")
     void  get_countries(@Query("q") String city, Callback<model> callback);
 
+    @GET("/data/2.5/weather")
+
+    void  get_countries_LatLng(@Query("lat") double lat,@Query("lon") double lon, Callback<model> callback);
+
 
 }
