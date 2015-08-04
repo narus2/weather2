@@ -24,8 +24,8 @@ import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
-import com.weather.narus.weather.model.Weather;
 import com.weather.narus.weather.model.model;
 
 import java.io.IOException;
@@ -43,9 +43,8 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
     String[] countries;
     AutoCompleteTextView contry;
     private GoogleMap mMap;
-    SupportMapFragment mapFragment;
     Callback<model> Callback;
-    MarkerOptions marker = new MarkerOptions();
+    Marker mark;
 
     private static final String TAG = MainActivity.class.getSimpleName();
 
@@ -75,7 +74,7 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
             @Override
             public void onClick(View v) {
 
-                jsonApiService.get_countries(contry.getText().toString(), Callback );
+                jsonApiService.get_countries(contry.getText().toString(),"metric", Callback );
             }
         });
 
@@ -111,7 +110,6 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
                     .getMap();
 
 
-
             // Check if we were successful in obtaining the map.
             if (mMap != null) {
                 setUpMap();
@@ -125,21 +123,19 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
 
             @Override
             public void success(final model model, final Response response) {
+                 LatLng userLocation = new LatLng(model.getCoordlt(), model.getCoordln());
+
+                MarkerOptions marker = new MarkerOptions()
+                .position(userLocation)
+                .snippet("t:" + model.getMainTemp())
+                .title(model.getName());
                 mMap.clear();
-                LatLng userLocation = new LatLng(model.getCoordlt(), model.getCoordln());
+                mark = mMap.addMarker(marker);
 
-                Weather r = model.getWeather().get(0);
-                String PICT_URL = "http://openweathermap.org/img/w/" + r.getIcon()+".png";
-
-                new DownloadImageTask().execute(PICT_URL);
-                marker = new MarkerOptions()
-                        .position(userLocation)
-                        .title(model.getName());
+                String PICT_URL = "http://openweathermap.org/img/w/" + model.getWeather().get(0).getIcon()+".png";
                 new DownloadImageTask().execute(PICT_URL);
 
 
-                //MarkerOptions marker =new MarkerOptions().position(userLocation).snippet("Snippet").title(model.getName());
-                mMap.addMarker(marker);
                 CameraPosition cameraPosition = new CameraPosition.Builder()
                         .target(userLocation)
                         .zoom(10)
@@ -148,6 +144,7 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
                         .build();
                 CameraUpdate cameraUpdate = CameraUpdateFactory.newCameraPosition(cameraPosition);
                 mMap.animateCamera(cameraUpdate);
+                mark.showInfoWindow();
 
             }
 
@@ -234,9 +231,8 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
         @Override
         protected void onPostExecute(Bitmap result) {
             super.onPostExecute(result);
-            marker.icon(BitmapDescriptorFactory.fromBitmap(result));
-            mMap.clear();
-            mMap.addMarker(marker);
+            mark.setIcon(BitmapDescriptorFactory.fromBitmap(result));
+            mark.showInfoWindow();
         }
     }
 }

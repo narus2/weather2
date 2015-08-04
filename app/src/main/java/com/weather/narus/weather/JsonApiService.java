@@ -12,7 +12,7 @@ import retrofit.http.Query;
 public interface JsonApiService {
 
     @GET("/data/2.5/weather")
-    void  get_countries(@Query("q") String city, Callback<model> callback);
+    void  get_countries(@Query("q") String city, @Query("units") String units, Callback<model> callback);
 
     @GET("/data/2.5/weather")
 

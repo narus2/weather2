@@ -191,6 +191,9 @@ public class model {
         this.additionalProperties.put(name, value);
     }
 
+    public String getMainTemp() {
+        return main.getTemp().toString();
+    }
 }
 
 class Clouds {
