@@ -4,4 +4,39 @@
     <string name="find">Найти</string>
     <string name="hint">Введите город</string>
     <string name="city_not_found">Город не найден</string>
+    <string name="Not_get_GPS">Не удалось получить координаты</string>
+    <string name="error_not_found_city">Город с таким названием не найден</string>
+    <string name="error_conversion">Ошибка обработки данных полученных с сервера</string>
+    <string name="error_http">Сервер возвратил ошибку</string>
+    <string name="error_network">Ошибка соединения</string>
+    <string name="error_unexpected">Произошла внутренняя ошибка при попытке выполнить запрос</string>
+    <string name="weather_clouds_title">Облачность:</string>
+    <string name="weather_clouds_unit">%</string>
+    <string name="weather_humidity_title">Влажность:</string>
+    <string name="weather_humidity_unit">%</string>
+    <string name="weather_wind_title">Ветер:</string>
+    <string name="weather_wind_speed_unit">м/с</string>
+    <string name="weather_pressure_title">Давление:</string>
+    <string name="weather_pressure_unit">мм рт.ст.</string>
+
+    <string-array name="cardinal_directions">
+        <item>С</item>
+        <item>ССВ</item>
+        <item>СВ</item>
+        <item>ВСВ</item>
+        <item>В</item>
+        <item>ВЮВ</item>
+        <item>ЮВ</item>
+        <item>ЮЮВ</item>
+        <item>Ю</item>
+        <item>ЮЮЗ</item>
+        <item>ЮЗ</item>
+        <item>ЗЮЗ</item>
+        <item>З</item>
+        <item>ЗСЗ</item>
+        <item>СЗ</item>
+        <item>ССЗ</item>
+        <item>С</item>
+    </string-array>
+
 </resources>

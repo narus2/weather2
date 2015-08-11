@@ -1,12 +1,7 @@
 package com.weather.narus.weather;
 
 import android.content.Context;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.location.Criteria;
 import android.location.Location;
-import android.location.LocationManager;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.ActionBarActivity;
 import android.view.Menu;
@@ -16,38 +11,37 @@ import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.Toast;
 
-import com.google.android.gms.maps.CameraUpdate;
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
-import com.google.android.gms.maps.model.BitmapDescriptorFactory;
-import com.google.android.gms.maps.model.CameraPosition;
+import com.google.android.gms.maps.UiSettings;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.weather.narus.weather.model.model;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.MalformedURLException;
-import java.net.URL;
 
 import retrofit.Callback;
 import retrofit.RestAdapter;
 import retrofit.RetrofitError;
 import retrofit.client.Response;
 
-public class MainActivity extends ActionBarActivity implements OnMapReadyCallback {
+public class MainActivity extends ActionBarActivity implements OnMapReadyCallback
+        , GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
 
-    String[] countries;
     AutoCompleteTextView contry;
     private GoogleMap mMap;
     Callback<model> Callback;
     Marker mark;
+    private GoogleApiClient mGoogleApiClient;
+    private Location mLastLocation;
+    private model mWeather;
 
     private static final String TAG = MainActivity.class.getSimpleName();
-
+    // init retrofit
     final RestAdapter restAdapter = new RestAdapter.Builder()
             .setEndpoint("http://api.openweathermap.org/")
             .setLogLevel(RestAdapter.LogLevel.FULL)
@@ -60,21 +54,25 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        buildGoogleApiClient();
         setUpMapIfNeeded();
 
         contry = (AutoCompleteTextView) findViewById(R.id.autocomplete_country);
-         AutoCompleteTextView textView = (AutoCompleteTextView) findViewById(R.id.autocomplete_country);
- //       ArrayAdapter<String> adapter =
- //              new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, countries);
-//        textView.setAdapter(adapter);
 
-//
+  /* //This is auto complit
+         AutoCompleteTextView textView = (AutoCompleteTextView) findViewById(R.id.autocomplete_country);
+        ArrayAdapter<String> adapter =
+               new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, countries);
+        textView.setAdapter(adapter);
+*/
         Button btn_show = (Button) findViewById(R.id.btn_show);
         btn_show.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-
-                jsonApiService.get_countries(contry.getText().toString(),"metric", Callback );
+                String SityText = String.valueOf(contry.getText());
+                if (!SityText.isEmpty()) {
+                    jsonApiService.get_countries(SityText, "metric", Callback);
+                }
             }
         });
 
@@ -108,8 +106,12 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
             // Try to obtain the map from the SupportMapFragment.
            mMap = ((SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map))
                     .getMap();
+            final UiSettings uiSettings = mMap.getUiSettings();
+            uiSettings.setZoomControlsEnabled(true);
+            uiSettings.setCompassEnabled(true);
+            uiSettings.setAllGesturesEnabled(true);
 
-
+            mMap.setInfoWindowAdapter(new WeatherInfoWindowAdapter());
             // Check if we were successful in obtaining the map.
             if (mMap != null) {
                 setUpMap();
@@ -120,119 +122,125 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
     private void setUpMap() {
         Callback = new Callback<model>() {
 
-
             @Override
             public void success(final model model, final Response response) {
-                 LatLng userLocation = new LatLng(model.getCoordlt(), model.getCoordln());
+                LatLng userLocation = new LatLng(model.getCoord().getLat(), model.getCoord().getLon());
 
                 MarkerOptions marker = new MarkerOptions()
                 .position(userLocation)
-                .snippet("t:" + model.getMainTemp())
+                        .snippet("t:" + model.getMain().getTemp())
                 .title(model.getName());
                 mMap.clear();
                 mark = mMap.addMarker(marker);
-
-                String PICT_URL = "http://openweathermap.org/img/w/" + model.getWeather().get(0).getIcon()+".png";
-                new DownloadImageTask().execute(PICT_URL);
-
-
-                CameraPosition cameraPosition = new CameraPosition.Builder()
-                        .target(userLocation)
-                        .zoom(10)
-                        .bearing(45)
-                        .tilt(20)
-                        .build();
-                CameraUpdate cameraUpdate = CameraUpdateFactory.newCameraPosition(cameraPosition);
-                mMap.animateCamera(cameraUpdate);
-                mark.showInfoWindow();
+                showWeatherInfoWindow(model);
 
             }
 
 
             @Override
             public void failure(final RetrofitError error) {
-                Context context = getApplicationContext();
-                CharSequence text = getResources().getText(R.string.city_not_found);
-                int duration = Toast.LENGTH_SHORT;
-                Toast toast = Toast.makeText(context, text, duration);
-                toast.show();
+                ShowDialog(R.string.city_not_found);
             }
 
         };
 
+//        LocationManager service = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+//        Criteria criteria = new Criteria();
+//        String provider = service.getBestProvider(criteria, false);
+//        Location location = service.getLastKnownLocation(provider);
 
-        LocationManager service = (LocationManager) getSystemService(LOCATION_SERVICE);
-        Criteria criteria = new Criteria();
-        String provider = service.getBestProvider(criteria, false);
-        Location location = service.getLastKnownLocation(provider);
-        LatLng userLocation = new LatLng(location.getLatitude(),location.getLongitude());
-
-        mMap.setMyLocationEnabled(true);
-
-
-        jsonApiService.get_countries_LatLng(location.getLatitude(), location.getLongitude(), Callback);
+//        if (location != null){
+//            LatLng userLocation = new LatLng(location.getLatitude(),location.getLongitude());
+//            mMap.setMyLocationEnabled(true);
+//        } else if (mGoogleApiClient != null){
 
 
+        mLastLocation = LocationServices.FusedLocationApi.getLastLocation(
+                mGoogleApiClient);
+        if (mLastLocation != null) {
+            LatLng userLocation = new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude());
+            mMap.setMyLocationEnabled(true);
+
+        } else {
+            ShowDialog(R.string.Not_get_GPS);
+        }
+    }
+
+    public void ShowDialog(int id) {
+        Context context = getApplicationContext();
+        CharSequence text = getResources().getText(id);
+        int duration = Toast.LENGTH_SHORT;
+        Toast toast = Toast.makeText(context, text, duration);
+        toast.show();
 
     }
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
-       // mMap = googleMap;
-//                final UiSettings uiSettings = mMap.getUiSettings();
-//                 uiSettings.setZoomControlsEnabled(true);
-//                 uiSettings.setCompassEnabled(true);
-//                 uiSettings.setAllGesturesEnabled(true);
-//
-//        LocationManager service = (LocationManager) getSystemService(LOCATION_SERVICE);
-//        Criteria criteria = new Criteria();
-//        String provider = service.getBestProvider(criteria, false);
-//        Location location = service.getLastKnownLocation(provider);
-//        LatLng userLocation = new LatLng(location.getLatitude(),location.getLongitude());
-//
-//                 mMap.addMarker(
-//                         new MarkerOptions().position(new LatLng(userLocation.latitude, userLocation.longitude)).
-//                                 snippet("Snippet").title("London"));
-//
-//
-//
     }
-    class DownloadImageTask extends AsyncTask<String, Void, Bitmap> {
-        @Override
-        protected Bitmap doInBackground(String... params) {
-            publishProgress(new Void[]{}); //or null
 
-            String url = "";
-            if( params.length > 0 ){
-                url = params[0];
-            }
-
-            InputStream input = null;
-            try {
-                URL urlConn = new URL(url);
-                input = urlConn.openStream();
-            }
-            catch (MalformedURLException e) {
-                e.printStackTrace();
-            }
-            catch (IOException e) {
-                e.printStackTrace();
-            }
-
-            return BitmapFactory.decodeStream(input);
-        }
-
-        @Override
-        protected void onProgressUpdate(Void... values) {
-            super.onProgressUpdate(values);
-
-        }
-
-        @Override
-        protected void onPostExecute(Bitmap result) {
-            super.onPostExecute(result);
-            mark.setIcon(BitmapDescriptorFactory.fromBitmap(result));
-            mark.showInfoWindow();
-        }
+    /* Connect to Google Play Services
+    */
+    protected synchronized void buildGoogleApiClient() {
+        mGoogleApiClient = new GoogleApiClient.Builder(getApplicationContext())
+                .addConnectionCallbacks(this)
+                .addOnConnectionFailedListener(this)
+                .addApi(LocationServices.API)
+                .build();
     }
+
+    @Override
+    public void onConnected(Bundle bundle) {
+
+    }
+
+    @Override
+    public void onConnectionSuspended(int i) {
+
+    }
+
+    @Override
+    public void onConnectionFailed(ConnectionResult connectionResult) {
+
+    }
+
+    private void showWeatherInfoWindow(model weather) {
+        mWeather = weather;
+        mMap.clear();
+
+        LatLng cityCoordinates = new LatLng(weather.getCoord().getLat(), weather.getCoord().getLon());
+
+        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(cityCoordinates, 10.0f));
+        Marker cityMarker = mMap.addMarker(new MarkerOptions()
+                .position(cityCoordinates));
+
+        cityMarker.showInfoWindow();
+    }
+
+    class WeatherInfoWindowAdapter implements GoogleMap.InfoWindowAdapter {
+        private final View mContentsView;
+
+        WeatherInfoWindowAdapter() {
+            mContentsView = getLayoutInflater().inflate(R.layout.weather_info_vertical, null);
+        }
+
+        @Override
+        public View getInfoContents(Marker marker) {
+
+            if (mWeather == null) {
+                return null;
+            }
+
+            new InfoWindowFiller(getApplicationContext(), mContentsView, mWeather).getFilledView();
+
+            return mContentsView;
+        }
+
+        @Override
+        public View getInfoWindow(Marker marker) {
+            return null;
+        }
+
+    }
+
 }
